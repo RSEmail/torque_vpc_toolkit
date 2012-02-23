@@ -8,9 +8,9 @@ namespace :job do
 		additional_attrs=ENV['ATTRIBUTES']
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs["ssh_gateway_ip"]=hash["vpn-gateway"]
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs["ssh_gateway_ip"]=group.vpn_gateway_ip
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 
 		xml=TorqueVPCToolkit.submit_job(configs, "jobs/#{script}", script, resources, additional_attrs)
 		job_hash=TorqueVPCToolkit.jobs_list(xml)[0]
@@ -22,9 +22,9 @@ namespace :job do
 	task :submit_all do
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs["ssh_gateway_ip"]=hash["vpn-gateway"]
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs["ssh_gateway_ip"]=group.vpn_gateway_ip
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 		xml=TorqueVPCToolkit.submit_all(configs)
 
 	end
@@ -34,9 +34,9 @@ namespace :job do
 		job_group=ENV['JOB_GROUP']
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs["ssh_gateway_ip"]=hash["vpn-gateway"]
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs["ssh_gateway_ip"]=group.vpn_gateway_ip
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 
 		xml=TorqueVPCToolkit.submit_all(configs, job_group)
         end
@@ -45,10 +45,10 @@ namespace :job do
 	task :list do
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 		xml=HttpUtil.get(
-			"https://"+hash["vpn-gateway"]+"/jobs.xml",
+			"https://"+group.vpn_gateway_ip+"/jobs.xml",
 			configs["torque_job_control_username"],
 			configs["torque_job_control_password"]
 		)
@@ -64,10 +64,10 @@ namespace :job do
 	task :node_states do
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 		xml=HttpUtil.get(
-			"https://"+hash["vpn-gateway"]+"/nodes",
+			"https://"+group.vpn_gateway_ip+"/nodes",
 			configs["torque_job_control_username"],
 			configs["torque_job_control_password"]
 		)
@@ -87,12 +87,12 @@ namespace :job do
 		end
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 
 		puts "Polling for job controller to come online (this may take a couple minutes)..."
 		nodes=nil
-		TorqueVPCToolkit.poll_until_online(hash["vpn-gateway"], timeout, configs) do |nodes_hash|
+		TorqueVPCToolkit.poll_until_online(group.vpn_gateway_ip, timeout, configs) do |nodes_hash|
 			if nodes != nodes_hash then
 				nodes = nodes_hash
 				nodes_hash.each_pair do |name, state|
@@ -112,11 +112,11 @@ namespace :job do
 		end
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
+		group=ServerGroup.fetch(:source => "cache")
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
 
 		puts "Polling for jobs to finish running..."
-		TorqueVPCToolkit.poll_until_jobs_finished(hash["vpn-gateway"], timeout, configs)
+		TorqueVPCToolkit.poll_until_jobs_finished(group.vpn_gateway_ip, timeout, configs)
 		puts "Jobs finished."
 	end
 
@@ -131,10 +131,10 @@ namespace :job do
                 to_id=ENV['TO_ID']
 	
                 configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
+		group=ServerGroup.fetch(:source => "cache")
                 puts "Polling for jobs #{from_id}-#{to_id} to finish running..."
-		TorqueVPCToolkit.poll_until_job_range_finished(hash["vpn-gateway"], Integer(from_id), Integer(to_id),
-                                                               timeout, configs)
+		TorqueVPCToolkit.poll_until_job_range_finished(group.vpn_gateway_ip,
+            Integer(from_id), Integer(to_id), timeout, configs)
 		puts "Jobs finished."
 
         end
@@ -142,11 +142,11 @@ namespace :job do
         desc "Submit a job group and poll until it is complete (requires: JOB_GROUP=<file>)"
         task :submit_group_and_poll do
                 configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
+		group=ServerGroup.fetch(:source => "cache")
 
-                initial_max = TorqueVPCToolkit.get_max_job_id(configs, hash)
+                initial_max = TorqueVPCToolkit.get_max_job_id(configs, group)
                 Rake::Task['job:submit_group'].invoke
-                new_max = TorqueVPCToolkit.get_max_job_id(configs, hash)
+                new_max = TorqueVPCToolkit.get_max_job_id(configs, group)
 
                 ENV['FROM_ID'] = "#{initial_max + 1}"
                 ENV['TO_ID'] = "#{new_max}"
@@ -158,9 +158,9 @@ namespace :job do
 		job_id=ENV['JOB_ID']
 
 		configs=Util.load_configs
-		hash=Util.hash_for_group(configs)
-		configs.merge!(TorqueVPCToolkit.job_control_credentials(hash['vpn-gateway']))
-		job=TorqueVPCToolkit.job_hash(hash["vpn-gateway"], job_id, configs)
+		group=ServerGroup.fetch(:source => "cache")
+		configs.merge!(TorqueVPCToolkit.job_control_credentials(group.vpn_gateway_ip))
+		job=TorqueVPCToolkit.job_hash(group.vpn_gateway_ip, job_id, configs)
 
 		puts "--"
 		puts "Job ID: #{job['id']}"

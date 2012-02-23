@@ -1,5 +1,6 @@
 require 'rexml/document'
 require 'rexml/xpath'
+require 'http_util'
 require 'json'
 
 require 'chef-vpc-toolkit'
