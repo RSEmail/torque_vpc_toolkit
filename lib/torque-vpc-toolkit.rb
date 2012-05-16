@@ -239,7 +239,7 @@ module TorqueVPCToolkit
 
 	# parse the torque_server role for job_control credentials
 	def self.job_control_credentials(ip_addr)
-		role_text=%x{ssh root@#{ip_addr} /usr/bin/knife role show torque_server}
+		role_text=%x{ssh root@#{ip_addr} /usr/bin/knife role show -F json torque_server}
 		json=JSON.parse(role_text.gsub(/\"json_class\"[^,]*,/, ''))
 		username=json["override_attributes"]["job_control"]["auth_username"]
 		password=json["override_attributes"]["job_control"]["auth_password"]
